@@ -5,6 +5,8 @@
 /* MAIN                                                                      */
 /* ************************************************************************* */
 
+sem_t mutex;
+
 int main(int argc, char** argv)
 {
     int server_socket;                 // descriptor of server socket
@@ -55,25 +57,28 @@ int main(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
     
+    //Using a binary semaphore to stop race conditions
+    sem_init(&mutex, 0, 1);
     // ----------------------------------------------------------
     // server loop
     // ----------------------------------------------------------
+    
     while (TRUE)
     {
+        //sem wait so we don't overwrite the client socket before the thread is finished.
+        sem_wait(&mutex);
         
         // accept connection to client
         int client_socket = accept(server_socket, NULL, NULL);
         printf("\nServer with PID %d: accepted client\n", getpid());
-
-        // create thread to handle the client's request
-        // note that this is a naive approach, i.e. there are race conditions
-        // for now this is okay, assuming low load
+        
         pthread_t thread;
         if (pthread_create(&thread, NULL, handle_client, (void*)&client_socket) != 0)
         {
             perror("Error creating thread");
             exit(EXIT_FAILURE);
         }
+        
         
         // detach the thread so that we don't have to wait (join) with it to reclaim memory.
         // memory will be reclaimed when the thread finishes.
@@ -83,6 +88,7 @@ int main(int argc, char** argv)
             exit(EXIT_FAILURE);
         }
     }
+    sem_destroy(&mutex);
 }
 
 
@@ -92,35 +98,19 @@ int main(int argc, char** argv)
 
 void* handle_client(void* arg) 
 {
-    int client_socket = *((int*)arg);   // the socket connected to the client
-    char input;
-    int keep_going = TRUE;
     
-    while (keep_going) 
-    {
-        // read char from client
-        switch (read(client_socket, &input, sizeof(char))) 
-        {
-            case 0:
-                keep_going = FALSE;
-                perror("End of stream, returning ...\n");
-                break;
-            case -1:
-                perror("Error reading from network!\n");
-                keep_going = FALSE;
-                break;
-        }
-        printf("%c", input);
+    int client_socket = *((int*)arg);   // the socket connected to the client
+    
+    char time[80];
+   
+          
+    
         
-        // check if we terminate
-        if (input == 'q') 
-        {
-            keep_going = FALSE;
-        }
         
-        // send result back to client
-        write(client_socket, &input, sizeof(char));
-    }
+        
+    
+    write(client_socket, &time, sizeof(char));
+    
     
     // cleanup
     if (close(client_socket) == -1) 
@@ -133,6 +123,8 @@ void* handle_client(void* arg)
         printf("Closed socket to client, exit");
     }
     
+    //unlocks the mutex, and signals that a new client can be accepted.
+    sem_post(&mutex);
     pthread_exit(NULL);
 }
 
