@@ -1,6 +1,4 @@
-
-
-
+#include <semaphore.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -13,15 +11,15 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <time.h>
-
-
+#include <string.h>
+#include <signal.h>
 /* Function prototypes */
 void* handle_client(void* arg);
 
 /* Preprocessor directives */
-#define SERVER_ADDR "127.0.0.1" // loopback ip address
+#define SERVER_ADDR "172.233.157.24" // loopback ip address
 #define PORT 23657              // port the server will listen on
-
+#define MAX_SIZE 80
 #define FALSE 0
 #define TRUE !FALSE
 

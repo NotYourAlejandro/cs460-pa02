@@ -12,6 +12,7 @@ int main(int argc, char** argv)
     int server_socket;                 // descriptor of server socket
     struct sockaddr_in server_address; // for naming the server's listening socket
     int yes = 1;
+    
 
 
     // ----------------------------------------------------------
@@ -100,19 +101,29 @@ void* handle_client(void* arg)
 {
     
     int client_socket = *((int*)arg);   // the socket connected to the client
+    //creates a buffer to store the time info with a max size of 80 bytes
+    char buffer[MAX_SIZE];
+
+    //stores the number of seconds since the unix epoch
+    time_t *seconds;
     
-    char time[80];
-   
-          
+    //creates a pointer to a time structure 
+    struct tm* UTC_time;
+
+    //gets the number of seconds since the unix epoch
+    *seconds = time(NULL);
+
+    //converts that number of seconds from the local time zone to UTC
+    UTC_time = gmtime(seconds);
+
+    //Converts the number of seconds into a custom time format, and stores that string in the buffer
+    strftime(buffer, sizeof(buffer), "\n%y-%m-%d %H:%M:%S UTC \n", UTC_time);
+
+    //writes the time string to the client socket.
+    write(client_socket, &buffer, strlen(buffer));
     
-        
-        
-        
-    
-    write(client_socket, &time, sizeof(char));
     
     
-    // cleanup
     if (close(client_socket) == -1) 
     {
         perror("Error closing socket");
