@@ -1,66 +1,53 @@
-#include "client.h"
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-/************************************************************************
- * MAIN
- ************************************************************************/
-int main(int argc, char * argv[])
-{
-	char input[100];                    // buffer for user input
-	int client_socket;                  // client side socket
-	struct sockaddr_in client_address;  // client socket naming struct
-	int server_port = atoi(argv[2]);
-	char * server_ip = argv[1];
-	char c;
+#define TARGET_ADDR "time-a.nist.gov"
+#define TARGET_PORT "13"
 
-	printf("Echo client\n");
+#define BUF_SIZE 80
 
-	// create an unnamed socket
-	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		perror("Error creating socket");
-		exit(EXIT_FAILURE);
-	}
+int main(int argc, char *argv[]) {
+    struct addrinfo hint, *result, *tmp;
+    struct sockaddr_in *addr;
+    char addr_str[INET_ADDRSTRLEN];
+    char buf[BUF_SIZE];
+    char c = 0;
+    int sock_fd;
+  
+    bzero(&hint, sizeof(struct addrinfo));
+  
+    hint.ai_family = AF_INET;
+    hint.ai_socktype = SOCK_STREAM;
+  
+    if (getaddrinfo(TARGET_ADDR, TARGET_PORT, &hint, &result)) {
+        fprintf(stderr, "Failed to get address info.\n");
+        return EXIT_FAILURE;
+    }
 
-	// create addr struct
-	client_address.sin_family      = AF_INET;
-	client_address.sin_port        = htons(server_port);
-	//client_address.sin_addr.s_addr = inet_addr(server_ip); // legacy inet_addr
-	if (inet_pton(AF_INET, server_ip, &client_address.sin_addr) != 1) 
-	{
-		fprintf(stderr, "Invalid IP address\n");
-		exit(EXIT_FAILURE);
-	}
-
-	// connect to server socket
-	if (connect(client_socket, (struct sockaddr *)&client_address, sizeof(client_address)) == -1)
-	{
-		perror("Error connecting to server!\n");
-		exit(EXIT_FAILURE);
-	}
-
-	while (TRUE)
-	{
-		printf("Input: ");
-		// read string
-		fgets(input, sizeof(input), stdin);
-
-		int i = 0;
-		while (*(input + i))
-		{
-			// make the request to the server
-			write(client_socket, input + i, sizeof(char));
-			// get the result
-			read(client_socket, &c, sizeof(char));
-			if (c == 'q')
-			{
-				close(client_socket);
-				printf("\nDone!\n");
-				exit(EXIT_SUCCESS);
-			}
-			printf("%c", c);
-			i++;
-		}
-	}
-
-	return EXIT_SUCCESS;
+    if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        fprintf(stderr, "Failed to create socket\n");
+        return EXIT_FAILURE;
+    }
+  
+    if (connect(sock_fd, result->ai_addr, result->ai_addrlen)) {
+        fprintf(stderr, "Failed to connect to server\n");
+        return EXIT_FAILURE;
+    }
+  
+    while (c != '*') {
+        read(sock_fd, &c, sizeof(char));
+        putchar(c);
+    }
+    printf("\n");
+ 
+    close(sock_fd);
+    freeaddrinfo(result);
+  
+    return EXIT_SUCCESS;
 }
-
