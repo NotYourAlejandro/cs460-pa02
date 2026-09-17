@@ -5,7 +5,8 @@
 /* MAIN                                                                      */
 /* ************************************************************************* */
 
-sem_t mutex;
+
+
 
 int main(int argc, char** argv)
 {
@@ -57,9 +58,11 @@ int main(int argc, char** argv)
         perror("Error listening on socket");
         exit(EXIT_FAILURE);
     }
-    
+    sem_t mutex;
+    sem_t mutex2;
     //Using a binary semaphore to stop race conditions
     sem_init(&mutex, 0, 1);
+    sem_init(&mutex2, 0, 1);
     // ----------------------------------------------------------
     // server loop
     // ----------------------------------------------------------
@@ -72,9 +75,16 @@ int main(int argc, char** argv)
         // accept connection to client
         int client_socket = accept(server_socket, NULL, NULL);
         printf("\nServer with PID %d: accepted client\n", getpid());
-        
+ 	         
+        //initializing the arguments for the thread in a struct
+	struct arguments* argument = (struct arguments*)malloc(sizeof(struct arguments));
+	argument->semaphore = &mutex2;
+        argument->client_socket = client_socket;
+	
+        //crtical section over.
+        sem_post(&mutex);
         pthread_t thread;
-        if (pthread_create(&thread, NULL, handle_client, (void*)&client_socket) != 0)
+        if (pthread_create(&thread, NULL, handle_client, (void*)argument) != 0)
         {
             perror("Error creating thread");
             exit(EXIT_FAILURE);
@@ -88,8 +98,11 @@ int main(int argc, char** argv)
             perror("Error detaching thread");
             exit(EXIT_FAILURE);
         }
+	
     }
+    
     sem_destroy(&mutex);
+    sem_destroy(&mutex2);
 }
 
 
@@ -99,8 +112,16 @@ int main(int argc, char** argv)
 
 void* handle_client(void* arg) 
 {
+    //unpacking arguments from the struct
+    struct arguments* argument = (struct arguments*)arg;       
+    sem_t* mutex2 = argument->semaphore; 
+ 
+    //wait while we handle the thread.
+    sem_wait(mutex2);
     
-    int client_socket = *((int*)arg);   // the socket connected to the client
+    //unpack client socket
+    int client_socket = argument->client_socket;
+    
     //creates a buffer to store the time info with a max size of 80 bytes
     char buffer[MAX_SIZE];
 
@@ -119,11 +140,12 @@ void* handle_client(void* arg)
     //Converts the number of seconds into a custom time format, and stores that string in the buffer
     strftime(buffer, sizeof(buffer), "\n%y-%m-%d %H:%M:%S UTC \n", UTC_time);
 
+     
+    
     //writes the time string to the client socket.
     write(client_socket, &buffer, strlen(buffer));
     
-    
-    
+
     if (close(client_socket) == -1) 
     {
         perror("Error closing socket");
@@ -133,9 +155,11 @@ void* handle_client(void* arg)
     {
         printf("Closed socket to client, exit");
     }
-    
-    //unlocks the mutex, and signals that a new client can be accepted.
-    sem_post(&mutex);
+        
+    //frees the arguments
+    free(argument);
+    //unlocks the mutex
+    sem_post(mutex2);
     pthread_exit(NULL);
 }
 
