@@ -18,10 +18,14 @@ void* handle_client(void* arg);
 
 /* Preprocessor directives */
 #define SERVER_ADDR "172.233.157.24" // loopback ip address
-#define PORT 23657              // port the server will listen on
+#define PORT 23757              // port the server will listen on
 #define MAX_SIZE 80
 #define FALSE 0
 #define TRUE !FALSE
 
 #define NUM_CONNECTIONS 5       // number of pending connections in the connection queue
 
+struct arguments{
+    sem_t* semaphore;
+    int client_socket;
+};
