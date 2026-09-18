@@ -117,7 +117,7 @@ void* handle_client(void* arg)
     UTC_time = gmtime(seconds);
 
     //Converts the number of seconds into a custom time format, and stores that string in the buffer
-    strftime(buffer, sizeof(buffer), "\n%y-%m-%d %H:%M:%S UTC \n", UTC_time);
+    strftime(buffer, sizeof(buffer), "%y-%m-%d %H:%M:%S UTC* \n", UTC_time);
 
     //writes the time string to the client socket.
     write(client_socket, &buffer, strlen(buffer));
